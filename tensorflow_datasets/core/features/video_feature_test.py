@@ -19,6 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
+import os.path
 import numpy as np
 import tensorflow as tf
 from tensorflow_datasets import testing
@@ -29,8 +31,7 @@ tf.compat.v1.enable_eager_execution()
 
 class VideoFeatureTest(testing.FeatureExpectationsTestCase):
 
-  def test_video(self):
-
+  def test_video_numpy(self):
     np_video = np.random.randint(256, size=(128, 64, 64, 3), dtype=np.uint8)
 
     self.assertFeature(
@@ -43,10 +44,52 @@ class VideoFeatureTest(testing.FeatureExpectationsTestCase):
                 value=np_video,
                 expected=np_video,
             ),
-            # File path (Gif)
-            # File path (.mp4)
         ],
     )
+
+  def test_video_ffmpeg(self):
+    test_dir_path = os.path.join(
+        os.path.dirname(__file__), '../../testing/test_data')
+    video_path = os.path.join(test_dir_path, 'video.mkv')
+    with tf.gfile.GFile(os.path.join(test_dir_path, 'video.json')) as json_fp:
+      video_array = np.asarray(json.load(json_fp))
+
+    self.assertFeature(
+        feature=features.Video(shape=(5, 4, 2, 3)),
+        shape=(5, 4, 2, 3),
+        dtype=tf.uint8,
+        tests=[
+            testing.FeatureExpectationItem(
+                value=video_path,
+                expected=video_array,
+            ),
+        ],
+    )
+
+    self.assertFeature(
+        feature=features.Video(shape=(5, 4, 2, 3), copy_locally=True),
+        shape=(5, 4, 2, 3),
+        dtype=tf.uint8,
+        tests=[
+            testing.FeatureExpectationItem(
+                value=video_path,
+                expected=video_array,
+            ),
+        ],
+    )
+
+    with tf.gfile.GFile(video_path, 'rb') as video_fp:
+      self.assertFeature(
+          feature=features.Video(shape=(5, 4, 2, 3)),
+          shape=(5, 4, 2, 3),
+          dtype=tf.uint8,
+          tests=[
+              testing.FeatureExpectationItem(
+                  value=video_fp,
+                  expected=video_array,
+              ),
+          ],
+      )
 
 
 if __name__ == '__main__':
